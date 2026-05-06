@@ -1,0 +1,9 @@
+node_modules/
+.venv/
+.venv-ocr/
+.env
+dist/
+__pycache__/
+uploads/
+*.pyc
+
