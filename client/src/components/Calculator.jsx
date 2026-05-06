@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { FaCloudUploadAlt } from "react-icons/fa";
+import { API_BASE } from "../config";
 
-const API_BASE = "http://localhost:5000";
 const SQM_TO_SQFT = 10.7639;
 
 const getSafeFileName = (value, extension) => {

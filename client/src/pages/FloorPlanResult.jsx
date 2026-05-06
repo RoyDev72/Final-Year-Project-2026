@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "../config";
 
 export default function FloorPlanResult() {
   const [result, setResult] = useState(null);
