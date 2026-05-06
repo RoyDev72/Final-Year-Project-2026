@@ -12,7 +12,13 @@ ocr_engine = None
 def get_ocr_engine():
     global ocr_engine
     if ocr_engine is None:
-        ocr_engine = PaddleOCR(use_angle_cls=True, lang="en")
+        ocr_engine = PaddleOCR(
+            use_angle_cls=False,
+            lang="en",
+            show_log=False,
+            cpu_threads=1,
+            det_limit_side_len=1280,
+        )
     return ocr_engine
 
 
@@ -53,7 +59,7 @@ def run_ocr():
     image.save(temp_path)
 
     try:
-        result = get_ocr_engine().ocr(temp_path, cls=True)
+        result = get_ocr_engine().ocr(temp_path, cls=False)
         lines, raw_text, items = parse_ocr_result(result)
         return jsonify({"lines": lines, "rawText": raw_text, "items": items})
     except Exception as error:
