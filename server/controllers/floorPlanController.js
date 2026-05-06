@@ -1,7 +1,11 @@
+import fs from "fs/promises";
+import os from "os";
+import path from "path";
 import FloorPlanResult from "../models/FloorPlanResult.js";
 import { preprocessFloorPlanBuffer } from "../utils/imagePreprocess.js";
 import { parseRoomsFromOcr } from "../utils/roomParser.js";
 import { runPaddleOcr } from "../services/ocrMicroservice.js";
+import { extractTextWithLocalOcr } from "../services/localOcrService.js";
 
 const ACCEPTED_TYPES = new Set([
   "application/pdf",
@@ -10,6 +14,33 @@ const ACCEPTED_TYPES = new Set([
   "image/jpg",
   "image/webp",
 ]);
+
+async function runFallbackOcr(file, mimeType) {
+  const extension = path.extname(file.originalname || "") || ".png";
+  const tempPath = path.join(
+    os.tmpdir(),
+    `floorplan-${Date.now()}-${Math.random().toString(36).slice(2)}${extension}`,
+  );
+
+  await fs.writeFile(tempPath, file.buffer);
+
+  try {
+    const result = await extractTextWithLocalOcr({
+      filePath: tempPath,
+      mimeType,
+      originalName: file.originalname,
+    });
+
+    return {
+      lines: result.lines || [],
+      rawText: result.text || "",
+      items: [],
+      engine: "tesseract.js",
+    };
+  } finally {
+    await fs.unlink(tempPath).catch(() => undefined);
+  }
+}
 
 export async function uploadFloorPlan(req, res, next) {
   try {
@@ -29,15 +60,23 @@ export async function uploadFloorPlan(req, res, next) {
       originalName: file.originalname,
     });
 
-    const ocrResult = await runPaddleOcr({
-      imageBuffer: processedBuffer,
-      filename: file.originalname,
-      mimeType: "image/png",
-    });
+    let ocrResult;
+
+    try {
+      ocrResult = await runPaddleOcr({
+        imageBuffer: processedBuffer,
+        filename: file.originalname,
+        mimeType: "image/png",
+      });
+    } catch (ocrError) {
+      console.error("Paddle OCR failed, trying local OCR:", ocrError.message);
+      ocrResult = await runFallbackOcr(file, mimeType);
+    }
 
     console.log("OCR result:", {
       linesCount: ocrResult.lines?.length,
       hasRawText: !!ocrResult.rawText,
+      engine: ocrResult.engine || "paddleocr",
     });
 
     const rooms = parseRoomsFromOcr(ocrResult);
